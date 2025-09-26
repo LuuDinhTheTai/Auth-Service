@@ -1,22 +1,33 @@
 package com.me.auth_service.configuration;
 
+import com.me.auth_service.configuration.jwt.JwtAuthenticationFilter;
+import com.nimbusds.jwt.proc.DefaultJWTProcessor;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
 public class SecurityConfiguration {
+
+    private final UserDetailsService userDetailsService;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -38,38 +49,41 @@ public class SecurityConfiguration {
                         .anyRequest().authenticated()
         );
 
-        http.httpBasic(
-                Customizer.withDefaults()
+        http.oauth2ResourceServer(
+                oauth2 -> oauth2
+                        .jwt(Customizer.withDefaults())
         );
 
+        http.authenticationProvider(authenticationProvider());
+
+        http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
         http.cors(
-                Customizer.withDefaults()
+                cors -> cors.disable()
         );
 
         http.csrf(
-                Customizer.withDefaults()
+                csrf -> csrf.disable()
         );
 
         return http.build();
     }
 
     @Bean
-    public UserDetailsService userDetailsService() {
-        UserDetails user = User.builder()
-                .username("u")
-                .password(passwordEncoder().encode("u"))
-                .roles("USER")
-                .build();
-        UserDetails admin = User.builder()
-                .username("a")
-                .password(passwordEncoder().encode("a"))
-                .roles("ADMIN")
-                .build();
-        return new InMemoryUserDetailsManager(user, admin);
+    public JwtDecoder jwtDecoder() {
+        return new NimbusJwtDecoder(new DefaultJWTProcessor<>());
     }
 
     @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+    public AuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder);
+        return provider;
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
     }
 }

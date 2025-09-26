@@ -4,6 +4,7 @@ import com.me.auth_service.dto.request.LoginRequest;
 import com.me.auth_service.dto.request.RegisterRequest;
 import com.me.auth_service.dto.response.AccountResponse;
 import com.me.auth_service.service.AuthService;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -26,8 +27,11 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
-        AccountResponse response = authService.login(request);
+    public ResponseEntity<?> login(
+            @Valid @RequestBody LoginRequest request,
+            HttpServletResponse httpServletResponse
+    ) {
+        AccountResponse response = authService.login(request, httpServletResponse);
         return ResponseEntity.ok(response);
     }
 
